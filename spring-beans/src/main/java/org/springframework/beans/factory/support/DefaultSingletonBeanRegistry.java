@@ -70,14 +70,28 @@ import org.springframework.util.StringUtils;
  */
 public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements SingletonBeanRegistry {
 
-	/** Cache of singleton objects: bean name to bean instance. */
+	/**
+	 * Cache of singleton objects: bean name to bean instance
+	 *  一级缓存，存放的是单例 bean 的映射。
+	 *  这里的 bean 是已经创建完成的。
+	 */
 	private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
 
-	/** Cache of singleton factories: bean name to ObjectFactory. */
-	private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
-
-	/** Cache of early singleton objects: bean name to bean instance. */
+	/**
+	 * Cache of early singleton objects: bean name to bean instance.
+	 * 二级缓存，存放的是早期半成品（未初始化完）的 bean，对应关系也是 bean name --> bean instance。
+	 * 它与 {@link #singletonObjects} 区别在于， 它自己存放的 bean 不一定是完整。
+	 * 这个 Map 也是【循环依赖】的关键所在。
+	 */
 	private final Map<String, Object> earlySingletonObjects = new HashMap<>(16);
+
+	/**
+	 * Cache of singleton factories: bean name to ObjectFactory.
+	 * 三级缓存，存放的是 ObjectFactory，可以理解为创建早期半成品（未初始化完）的 bean 的 factory ，最终添加到二级缓存 {@link #earlySingletonObjects} 中
+	 * 对应关系是 bean name --> ObjectFactory
+	 * 这个 Map 也是【循环依赖】的关键所在。
+	 */
+	private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
 
 	/** Set of registered singletons, containing the bean names in registration order. */
 	private final Set<String> registeredSingletons = new LinkedHashSet<>(256);
@@ -174,15 +188,24 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 */
 	@Nullable
 	protected Object getSingleton(String beanName, boolean allowEarlyReference) {
+		// 从一级缓冲中加载 bean
 		Object singletonObject = this.singletonObjects.get(beanName);
+		// 缓存中的 bean 为空，且当前 bean 正在创建
 		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
+			// 加锁
 			synchronized (this.singletonObjects) {
+				// 从 二级缓存 获取
 				singletonObject = this.earlySingletonObjects.get(beanName);
+				// 二级缓存 中没有，且允许提前创建
 				if (singletonObject == null && allowEarlyReference) {
+					// 从 三级缓存 中获取对应的 ObjectFactory
 					ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
 					if (singletonFactory != null) {
+						// 获得 bean
 						singletonObject = singletonFactory.getObject();
+						//把bean放到二级缓存中
 						this.earlySingletonObjects.put(beanName, singletonObject);
+						//把bean 从三级缓存中移出
 						this.singletonFactories.remove(beanName);
 					}
 				}

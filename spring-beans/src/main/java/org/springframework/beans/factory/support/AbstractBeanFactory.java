@@ -243,6 +243,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		Object bean;
 
 		// Eagerly check singleton cache for manually registered singletons.
+		//从缓存中获取bean
 		Object sharedInstance = getSingleton(beanName);
 		if (sharedInstance != null && args == null) {
 			if (logger.isTraceEnabled()) {
@@ -254,6 +255,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					logger.trace("Returning cached instance of singleton bean '" + beanName + "'");
 				}
 			}
+			// <2> 完成 FactoryBean 的相关处理，并用来获取 FactoryBean 的处理结果
 			bean = getObjectForBeanInstance(sharedInstance, name, beanName, null);
 		}
 
